@@ -1,0 +1,100 @@
+services:
+  
+  bootstrap:
+    build: .
+    working_dir: /app
+    volumes:
+      - ./bootstrap.sh:/app/bootstrap.sh
+      - ./client.txt:/app/client.txt
+      - ./token.txt:/app/token.txt
+      - .:/app
+    depends_on:
+      - hydra
+
+  token-hook:
+    image: python:3-slim
+    volumes:
+      - ./hydra:/app
+    working_dir: /app
+    command: python hook.py
+    ports:
+      - "8000:8000"
+
+  vtn:
+    image: ghcr.io/openleadr/openleadr-rs:latest
+    ports:
+      - ${VTN_PORT}:3000
+    environment:
+      RUST_LOG: trace
+      DATABASE_URL: postgres://openadr:openadr@db:5432/openadr
+      OAUTH_TYPE: EXTERNAL
+      OAUTH_JWKS_LOCATION: http://hydra:4444/.well-known/jwks.json
+      OAUTH_KEY_TYPE: RSA
+      OAUTH_VALID_AUDIENCES: "http://localhost:3000,"
+      RUST_BACKTRACE: 1
+    healthcheck:
+      test: curl --fail http://127.0.0.1:3000/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      - db
+
+  db:
+    image: ghcr.io/tweedegolf/postgres:16
+    environment:
+      POSTGRES_USER: $PG_USER
+      POSTGRES_DB: $PG_DB
+      POSTGRES_PASSWORD: $PG_PASSWORD
+      POSTGRES_HOST_AUTH_METHOD: trust
+      TZ: $PG_TZ
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U openadr" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - ${PG_PORT}:5432
+    volumes:
+      - database-data:/var/lib/postgresql/data/
+
+  hydra:
+    image: oryd/hydra:v2.2.0
+    ports:
+      - "4444:4444" # Public port
+      - "4445:4445" # Admin port
+      - "5555:5555" # Port for hydra token user
+    command: serve -c /etc/config/hydra/hydra.yml all --dev
+    volumes:
+      - type: volume
+        source: hydra-sqlite
+        target: /var/lib/sqlite
+        read_only: false
+      - type: bind
+        source: ./hydra/config
+        target: /etc/config/hydra
+    environment:
+      - DSN=sqlite:///var/lib/sqlite/db.sqlite?_fk=true
+      - LOG_LEAK_SENSITIVE_VALUES=true
+    restart: unless-stopped
+    depends_on:
+      - hydra-migrate
+      - token-hook
+  hydra-migrate:
+    image: oryd/hydra:v2.2.0
+    environment:
+      - DSN=sqlite:///var/lib/sqlite/db.sqlite?_fk=true
+    command: migrate -c /etc/config/hydra/hydra.yml sql -e --yes
+    volumes:
+      - type: volume
+        source: hydra-sqlite
+        target: /var/lib/sqlite
+        read_only: false
+      - type: bind
+        source: ./hydra/config
+        target: /etc/config/hydra
+    restart: on-failure
+
+volumes:
+  database-data:
+  hydra-sqlite:

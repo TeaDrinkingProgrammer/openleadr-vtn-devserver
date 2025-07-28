@@ -1,0 +1,36 @@
+serve:
+  cookies:
+    same_site_mode: Lax
+
+urls:
+  self:
+    issuer: http://127.0.0.1:4444
+  consent: http://127.0.0.1:3000/consent
+  login: http://127.0.0.1:3000/login
+  logout: http://127.0.0.1:3000/logout
+
+oauth2:
+  token_hook:
+    url: http://host.docker.internal:8000/token-hook
+  allowed_top_level_claims:
+    - roles
+    - scope
+  session:
+    allowed_top_level_claims:
+      - roles
+      - scope
+
+secrets:
+  system:
+    - 3449eae366d8f1a5852501229416a6ba42b7b73e82ba2c28912126a6c1546fc3a43d01edfc7c65903d6829130ca5a4ab641008b9fce3be8ee7bed3dda805b352acef4ee2fa3169abdac301e754b3e6ea126efa4df73ecd12b05fabc2e6114741e135b76c1b4c1c02c51986ea971d452e01586fe146e6d0abe672b3d9384a25fd12e61a89b0dd6f849d448bf54d4f70633f238243c345aaf7f5e973eb0ae63267f84f6945671c69dab58cf1678bf7b0161ac8734038dc1e6d729c80f85693cf92e2ab44d9c017df44527c6a0da0a73ee1e79737bdc8e7f4c342498067d4b045aade0296d39d647a98c9f6defa8c8a9e04739a7eb5e5ed774446f8e74f3b401f87
+
+oidc:
+  subject_identifiers:
+    supported_types:
+      - pairwise
+      - public
+    pairwise:
+      salt: 3449eae366d8f1a5852501229416a6ba42b7b73e82ba2c28912126a6c1546fc3a43d01edfc7c65903d6829130ca5a4ab641008b9fce3be8ee7bed3dda805b352acef4ee2fa3169abdac301e754b3e6ea126efa4df73ecd12b05fabc2e6114741e135b76c1b4c1c02c51986ea971d452e01586fe146e6d0abe672b3d9384a25fd12e61a89b0dd6f849d448bf54d4f70633f238243c345aaf7f5e973eb0ae63267f84f6945671c69dab58cf1678bf7b0161ac8734038dc1e6d729c80f85693cf92e2ab44d9c017df44527c6a0da0a73ee1e79737bdc8e7f4c342498067d4b045aade0296d39d647a98c9f6defa8c8a9e04739a7eb5e5ed774446f8e74f3b401f87
+
+strategies:
+  access_token: jwt
