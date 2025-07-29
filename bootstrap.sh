@@ -1,6 +1,52 @@
 #!/bin/sh
 set -euo pipefail
 
+# Detect OS for sed compatibility
+if [ "$(uname)" = "Darwin" ]; then
+  # macOS requires an extension argument
+  SED_INPLACE="sed -i ''"
+else
+  # Linux and others just use -i
+  SED_INPLACE="sed -i"
+fi
+
+update_env_var() {
+  local key="$1"
+  local value="$2"
+  
+  echo "Updating environment variable: $key"
+  
+  # Create file if it doesn't exist
+  if [ ! -f .env ]; then
+    echo "Creating new .env file"
+    touch data/.env
+  fi
+  
+  echo "Checking if $key exists in .env file..."
+  if grep -q "^${key}=" data/.env; then
+    echo "Found existing value for $key - replacing it"
+    # For debugging, show the current value
+    echo "Current line: $(grep "^${key}=" data/.env)"
+    # Quote the value to handle special characters
+    $SED_INPLACE "s|^${key}=.*|${key}=\"${value}\"|" data/.env
+    echo "Updated to: ${key}=\"${value}\""
+  else
+    echo "$key not found - adding new entry"
+    # Check if we need a newline
+    if [ -s "data/.env" ] && [ -n "$(tail -c1 data/.env)" ]; then
+      echo "Adding newline before new entry"
+      printf '\n' >> data/.env
+    fi
+    # Quote the value to handle special characters
+    printf '%s="%s"\n' "$key" "$value" >> data/.env
+    echo "Added new entry: ${key}=\"${value}\""
+  fi
+  
+  echo "Current .env file contents:"
+  cat data/.env
+  echo "-------------------"
+}
+
 # Create OAuth2 Client
 echo "Creating OAuth2 client..."
 curl -s -X POST http://hydra:4445/admin/clients \
@@ -8,36 +54,25 @@ curl -s -X POST http://hydra:4445/admin/clients \
   -d '{
     "audience": ["http://localhost:3000"],
     "grant_types": ["client_credentials"],
-    "token_endpoint_auth_method": "client_secret_post"
-  }' > client.txt
+    "token_endpoint_auth_method": "client_secret_basic"
+  }' > data/client.txt
 
+CLIENT_ID=$(jq -r '.client_id' data/client.txt)
+CLIENT_SECRET=$(jq -r '.client_secret' data/client.txt)
+
+# curl -s -X POST http://hydra:4444/oauth2/token \
+#    -F "grant_type=client_credentials" \
+#    -F "client_id=$CLIENT_ID" \
+#    -F "client_secret=$CLIENT_SECRET" \
+#    -F "audience=http://localhost:3000" > data/token.txt
+
+# ACCESS_TOKEN=$(jq -r '.access_token' data/token.txt)
 # Extract client credentials using jq
-CLIENT_ID=$(jq -r '.client_id' client.txt)
-CLIENT_SECRET=$(jq -r '.client_secret' client.txt)
+OAUTH_CLIENT_ID=$CLIENT_ID
+OAUTH_CLIENT_SECRET=$CLIENT_SECRET
 
-echo "Client ID: $CLIENT_ID"
-echo "Client Secret: $CLIENT_SECRET"
+echo "Client ID: $OAUTH_CLIENT_ID"
+echo "Client Secret: $OAUTH_CLIENT_SECRET"
 
-# Generate Access Token
-echo "Generating access token..."
-curl -s -X POST http://hydra:4444/oauth2/token \
-  -F "grant_type=client_credentials" \
-  -F "client_id=$CLIENT_ID" \
-  -F "client_secret=$CLIENT_SECRET" \
-  -F "audience=http://localhost:3000" | jq -r '
-    "ACCESS TOKEN\t" + .access_token + "\n" +
-    "REFRESH TOKEN\t<empty>\n" +
-    "ID TOKEN\t<empty>\n" +
-    "EXPIRY\t\t" + (.expires_in | tostring) + " seconds"
-  ' > token.txt
-
-echo "Access token saved to token.txt"
-
-# Extract Access Token
-echo "Extracting access token..."
-ACCESS_TOKEN=$(awk '/^ACCESS TOKEN/{print $3}' token.txt)
-echo "Access Token: $ACCESS_TOKEN"
-
-# Write the access token to the .env file
-sed -i -e '/^ACCESS_TOKEN=/d' -e '$a\' .env 2>/dev/null || touch .env
-echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> .env 
+update_env_var "OAUTH_CLIENT_ID" "$OAUTH_CLIENT_ID"
+update_env_var "OAUTH_CLIENT_SECRET" "$OAUTH_CLIENT_SECRET"

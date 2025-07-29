@@ -5,9 +5,7 @@ services:
     working_dir: /app
     volumes:
       - ./bootstrap.sh:/app/bootstrap.sh
-      - ./client.txt:/app/client.txt
-      - ./token.txt:/app/token.txt
-      - .:/app
+      - ./data:/app/data
     depends_on:
       - hydra
 
@@ -21,7 +19,7 @@ services:
       - "8000:8000"
 
   vtn:
-    image: ghcr.io/openleadr/openleadr-rs:latest
+    image: ghcr.io/openleadr/openleadr-rs:1753685935-f8a942e
     ports:
       - ${VTN_PORT}:3000
     environment:
@@ -39,6 +37,8 @@ services:
       retries: 3
     depends_on:
       - db
+      - hydra
+      - bootstrap
 
   db:
     image: ghcr.io/tweedegolf/postgres:16
