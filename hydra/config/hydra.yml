@@ -11,7 +11,7 @@ urls:
 
 oauth2:
   token_hook:
-    url: http://host.docker.internal:8000/token-hook
+    url: http://host.docker.internal:8001/token-hook
   allowed_top_level_claims:
     - roles
     - scope

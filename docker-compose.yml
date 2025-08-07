@@ -16,7 +16,7 @@ services:
     working_dir: /app
     command: python hook.py
     ports:
-      - "8000:8000"
+      - "8001:8000"
 
   vtn:
     image: ghcr.io/openleadr/openleadr-rs:1753685935-f8a942e
